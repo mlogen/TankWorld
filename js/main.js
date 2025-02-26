@@ -12,7 +12,24 @@ const gameState = {
     objects: [],
     keys: {}, // Add keys object for controls
     mouseMovement: { x: 0, y: 0 }, // Add mouse movement tracking
-    mouseDown: false // Add mouse down state
+    mouseDown: false, // Add mouse down state
+    lowPerformanceMode: false,
+    projectiles: [],
+    debris: [],
+    explosions: [],
+    muzzleFlashes: [],
+    trees: [],
+    buildings: [],
+    rocks: [],
+    deltaTime: 0,
+    mousePosition: { x: 0, y: 0 },
+    isMouseDown: false,
+    score: 0,
+    health: 100,
+    ammo: 30,
+    gameOver: false,
+    paused: false,
+    softwareRendering: false
 };
 
 // Expose gameState to window object
@@ -38,17 +55,51 @@ function checkWebGLCompatibility() {
             return false;
         }
         
-        // Check for hardware acceleration
+        // Get detailed renderer information
         const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        let rendererInfo = "Unknown";
+        let vendorInfo = "Unknown";
+        
         if (debugInfo) {
-            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-            if (renderer.indexOf('SwiftShader') !== -1 || 
-                renderer.indexOf('Software') !== -1 || 
-                renderer.indexOf('llvmpipe') !== -1) {
-                showWebGLWarning('Hardware acceleration is not enabled. The game will run slowly. Please enable hardware acceleration in your browser settings.');
+            rendererInfo = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            vendorInfo = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            
+            // Log detailed GPU information
+            console.log("WebGL Renderer:", rendererInfo);
+            console.log("WebGL Vendor:", vendorInfo);
+            
+            // Check for software rendering indicators
+            const isSoftwareRenderer = 
+                rendererInfo.indexOf('SwiftShader') !== -1 || 
+                rendererInfo.indexOf('Software') !== -1 || 
+                rendererInfo.indexOf('llvmpipe') !== -1 ||
+                rendererInfo.indexOf('Microsoft Basic Render') !== -1 ||
+                rendererInfo.indexOf('ANGLE') !== -1 && rendererInfo.indexOf('Direct3D11') === -1;
+            
+            if (isSoftwareRenderer) {
+                showWebGLWarning(`
+                    Hardware acceleration may not be fully enabled. 
+                    Detected renderer: ${rendererInfo}.
+                    Please check your graphics drivers and browser settings.
+                    Click "Show Solutions" for troubleshooting steps.
+                `, true);
                 return false;
             }
+        } else {
+            console.warn("WEBGL_debug_renderer_info extension not available");
         }
+        
+        // Check WebGL capabilities
+        const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+        const maxViewportDims = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+        
+        console.log("WebGL Capabilities:");
+        console.log("- Max Texture Size:", maxTextureSize);
+        console.log("- Max Viewport Dimensions:", maxViewportDims);
+        
+        // Check for WebGL2 support
+        const gl2 = canvas.getContext('webgl2');
+        console.log("WebGL2 Support:", gl2 ? "Yes" : "No");
         
         return true;
     } catch (e) {
@@ -59,7 +110,7 @@ function checkWebGLCompatibility() {
 }
 
 // Show WebGL warning message
-function showWebGLWarning(message) {
+function showWebGLWarning(message, showSolutions = false) {
     // Create warning element if it doesn't exist
     if (!document.getElementById('webgl-warning')) {
         const warning = document.createElement('div');
@@ -76,31 +127,40 @@ function showWebGLWarning(message) {
         warning.style.textAlign = 'center';
         warning.style.fontSize = '14px';
         
-        // Add a close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.style.position = 'absolute';
-        closeButton.style.right = '5px';
-        closeButton.style.top = '5px';
-        closeButton.style.background = 'none';
-        closeButton.style.border = 'none';
-        closeButton.style.color = 'white';
-        closeButton.style.fontSize = '20px';
-        closeButton.style.cursor = 'pointer';
-        closeButton.onclick = function() {
-            warning.style.display = 'none';
-        };
-        
-        warning.appendChild(closeButton);
         document.body.appendChild(warning);
     }
     
     // Update warning message
     const warningElement = document.getElementById('webgl-warning');
-    warningElement.textContent = message;
-    warningElement.style.display = 'block';
     
-    // Add the close button back after changing text content
+    // Clear previous content
+    warningElement.innerHTML = '';
+    
+    // Add message
+    const messageDiv = document.createElement('div');
+    messageDiv.innerHTML = message;
+    warningElement.appendChild(messageDiv);
+    
+    // Add solutions button if requested
+    if (showSolutions) {
+        const solutionsButton = document.createElement('button');
+        solutionsButton.textContent = 'Show Solutions';
+        solutionsButton.style.marginTop = '10px';
+        solutionsButton.style.padding = '5px 10px';
+        solutionsButton.style.backgroundColor = '#4a8';
+        solutionsButton.style.color = 'white';
+        solutionsButton.style.border = 'none';
+        solutionsButton.style.borderRadius = '3px';
+        solutionsButton.style.cursor = 'pointer';
+        
+        solutionsButton.onclick = function() {
+            showWebGLSolutions();
+        };
+        
+        warningElement.appendChild(solutionsButton);
+    }
+    
+    // Add close button
     const closeButton = document.createElement('button');
     closeButton.textContent = '×';
     closeButton.style.position = 'absolute';
@@ -114,7 +174,126 @@ function showWebGLWarning(message) {
     closeButton.onclick = function() {
         warningElement.style.display = 'none';
     };
+    
     warningElement.appendChild(closeButton);
+    warningElement.style.display = 'block';
+}
+
+// Show WebGL solutions dialog
+function showWebGLSolutions() {
+    // Create solutions dialog if it doesn't exist
+    if (!document.getElementById('webgl-solutions')) {
+        const solutions = document.createElement('div');
+        solutions.id = 'webgl-solutions';
+        solutions.style.position = 'fixed';
+        solutions.style.top = '50%';
+        solutions.style.left = '50%';
+        solutions.style.transform = 'translate(-50%, -50%)';
+        solutions.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+        solutions.style.color = 'white';
+        solutions.style.padding = '20px';
+        solutions.style.borderRadius = '10px';
+        solutions.style.zIndex = '2000';
+        solutions.style.width = '80%';
+        solutions.style.maxWidth = '600px';
+        solutions.style.maxHeight = '80%';
+        solutions.style.overflow = 'auto';
+        solutions.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+        
+        // Add solutions content
+        solutions.innerHTML = `
+            <h2 style="color: #4a8; text-align: center; margin-top: 0;">WebGL Troubleshooting</h2>
+            
+            <h3>1. Update Graphics Drivers</h3>
+            <p>Outdated graphics drivers are the most common cause of WebGL issues:</p>
+            <ul>
+                <li><a href="https://www.nvidia.com/Download/index.aspx" target="_blank" style="color: #4a8;">NVIDIA Drivers</a></li>
+                <li><a href="https://www.amd.com/en/support" target="_blank" style="color: #4a8;">AMD Drivers</a></li>
+                <li><a href="https://www.intel.com/content/www/us/en/download-center/home.html" target="_blank" style="color: #4a8;">Intel Drivers</a></li>
+            </ul>
+            
+            <h3>2. Check Browser Settings</h3>
+            <p>Ensure hardware acceleration is properly enabled:</p>
+            <ul>
+                <li><strong>Chrome:</strong> Settings → System → "Use hardware acceleration when available"</li>
+                <li><strong>Edge:</strong> Settings → System and performance → "Use hardware acceleration when available"</li>
+                <li><strong>Firefox:</strong> Settings → Performance → "Use hardware acceleration when available"</li>
+            </ul>
+            
+            <h3>3. Check Windows Settings</h3>
+            <p>Make sure your browser is using your dedicated GPU:</p>
+            <ol>
+                <li>Right-click on desktop → NVIDIA Control Panel or AMD Radeon Settings</li>
+                <li>Find program settings and add your browser</li>
+                <li>Set it to use the high-performance GPU</li>
+            </ol>
+            
+            <h3>4. Try a Different Browser</h3>
+            <p>Some browsers have better WebGL support than others. Try Chrome, Firefox, or Edge.</p>
+            
+            <h3>5. Disable Browser Extensions</h3>
+            <p>Some extensions can interfere with WebGL. Try disabling them or using incognito mode.</p>
+            
+            <h3>6. Check for Hardware Issues</h3>
+            <p>Run the <a href="https://get.webgl.org/" target="_blank" style="color: #4a8;">WebGL test page</a> to see if your system supports WebGL properly.</p>
+            
+            <h3>7. Force Hardware Acceleration in Chrome</h3>
+            <p>Type <code>chrome://flags</code> in the address bar and enable:</p>
+            <ul>
+                <li>"Override software rendering list"</li>
+                <li>"GPU rasterization"</li>
+                <li>"Zero-copy rasterizer"</li>
+            </ul>
+            
+            <h3>8. Check System Information</h3>
+            <p>Your detected renderer: <span id="renderer-info" style="color: yellow;">Checking...</span></p>
+            <p>Your detected vendor: <span id="vendor-info" style="color: yellow;">Checking...</span></p>
+        `;
+        
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.style.display = 'block';
+        closeButton.style.margin = '20px auto 0';
+        closeButton.style.padding = '8px 16px';
+        closeButton.style.backgroundColor = '#4a8';
+        closeButton.style.color = 'white';
+        closeButton.style.border = 'none';
+        closeButton.style.borderRadius = '5px';
+        closeButton.style.cursor = 'pointer';
+        
+        closeButton.onclick = function() {
+            solutions.style.display = 'none';
+        };
+        
+        solutions.appendChild(closeButton);
+        document.body.appendChild(solutions);
+        
+        // Update renderer info
+        setTimeout(() => {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                        const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                        document.getElementById('renderer-info').textContent = renderer;
+                        document.getElementById('vendor-info').textContent = vendor;
+                    } else {
+                        document.getElementById('renderer-info').textContent = "Could not detect (WEBGL_debug_renderer_info not available)";
+                        document.getElementById('vendor-info').textContent = "Could not detect (WEBGL_debug_renderer_info not available)";
+                    }
+                }
+            } catch (e) {
+                console.error("Error getting WebGL info:", e);
+            }
+        }, 100);
+    }
+    
+    // Show the solutions dialog
+    document.getElementById('webgl-solutions').style.display = 'block';
 }
 
 // Event Listeners
@@ -124,74 +303,119 @@ window.addEventListener('resize', onWindowResize);
 
 // Initialize the game
 function init() {
-    // Check WebGL compatibility before initializing
-    checkWebGLCompatibility();
-    
-    // Set up Three.js scene
-    gameState.scene = new THREE.Scene();
-    gameState.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-    
-    // Set up camera
-    const aspect = window.innerWidth / window.innerHeight;
-    gameState.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-    
-    // Initial camera position will be set after tank is created
-    
-    // Set up renderer
-    gameState.renderer = new THREE.WebGLRenderer({ 
-        canvas: gameCanvas,
-        antialias: true,
-        powerPreference: 'high-performance'
-    });
-    gameState.renderer.setSize(window.innerWidth, window.innerHeight);
-    gameState.renderer.shadowMap.enabled = true;
-    gameState.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better quality shadows
-    
-    // Performance optimizations
-    gameState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Limit pixel ratio for better performance
-    
-    // Check if we're running in software mode and adjust settings
-    const gl = gameState.renderer.getContext();
-    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-    if (debugInfo) {
-        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        if (renderer.indexOf('SwiftShader') !== -1 || 
-            renderer.indexOf('Software') !== -1 || 
-            renderer.indexOf('llvmpipe') !== -1) {
+    try {
+        // Check WebGL compatibility first
+        checkWebGLCompatibility();
+        
+        // Set up Three.js scene
+        gameState.scene = new THREE.Scene();
+        gameState.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+        
+        // Set up camera
+        const aspect = window.innerWidth / window.innerHeight;
+        gameState.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+        
+        // Initial camera position will be set after tank is created
+        
+        // Set up renderer with better error handling
+        try {
+            gameState.renderer = new THREE.WebGLRenderer({ 
+                canvas: gameCanvas,
+                antialias: true,
+                powerPreference: 'high-performance',
+                failIfMajorPerformanceCaveat: false // Don't fail on performance issues
+            });
+            gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+            gameState.renderer.shadowMap.enabled = true;
+            gameState.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better quality shadows
             
-            // Reduce quality for software rendering
-            gameState.renderer.setPixelRatio(1);
-            gameState.renderer.shadowMap.enabled = false;
-            gameState.renderer.antialias = false;
+            // Performance optimizations
+            gameState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Limit pixel ratio for better performance
             
-            // Show performance mode message
-            console.log("Running in low-performance mode due to software rendering");
+            // Check if we're running in software mode and adjust settings
+            const gl = gameState.renderer.getContext();
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                console.log("Using renderer:", renderer);
+                
+                // Check for software rendering or other problematic renderers
+                if (renderer.indexOf('SwiftShader') !== -1 || 
+                    renderer.indexOf('Software') !== -1 || 
+                    renderer.indexOf('llvmpipe') !== -1 ||
+                    renderer.indexOf('Microsoft Basic Render') !== -1) {
+                    
+                    // Reduce quality for software rendering
+                    gameState.softwareRendering = true;
+                    gameState.lowPerformanceMode = true;
+                    enableLowPerformanceMode();
+                    console.log("Automatically enabled low-performance mode due to software rendering");
+                }
+            }
+            
+        } catch (e) {
+            console.error("Error creating WebGL renderer:", e);
+            showWebGLWarning("Failed to create WebGL renderer. Your browser may not support WebGL.", true);
+            
+            // Try to create a simpler renderer as fallback
+            try {
+                gameState.renderer = new THREE.WebGLRenderer({ 
+                    canvas: gameCanvas,
+                    antialias: false,
+                    precision: 'lowp',
+                    powerPreference: 'low-power'
+                });
+                gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+                gameState.renderer.shadowMap.enabled = false;
+                gameState.renderer.setPixelRatio(1);
+                
+                gameState.softwareRendering = true;
+                gameState.lowPerformanceMode = true;
+                enableLowPerformanceMode();
+                console.log("Using fallback renderer with minimal settings");
+            } catch (fallbackError) {
+                console.error("Failed to create fallback renderer:", fallbackError);
+                showWebGLWarning("Your browser does not support WebGL. The game cannot run.", true);
+                return; // Exit initialization
+            }
         }
+        
+        // Add lighting
+        addLighting();
+        
+        // Create environment
+        gameState.environment = createEnvironment(gameState.scene);
+        
+        // Create tank
+        gameState.tank = createTank(gameState.scene);
+        gameState.tank.position.set(0, 1.0, 0);
+        gameState.scene.add(gameState.tank);
+        
+        // Set up camera to follow tank
+        const tankBody = gameState.tank.getObjectByName('tankBody');
+        const angle = tankBody ? tankBody.rotation.y : 0;
+        gameState.camera.position.set(
+            gameState.tank.position.x - Math.sin(angle) * 15,
+            8,
+            gameState.tank.position.z - Math.cos(angle) * 15
+        );
+        gameState.camera.lookAt(gameState.tank.position);
+        
+        // Set up controls
+        gameState.controls = setupControls(gameState);
+        
+        // Add performance mode toggle
+        addPerformanceModeToggle();
+        
+        // Start animation loop if we're playing
+        if (gameState.isPlaying) {
+            gameState.lastTime = performance.now();
+            requestAnimationFrame(animate);
+        }
+    } catch (error) {
+        console.error("Error initializing game:", error);
+        showWebGLWarning("Failed to initialize game: " + error.message, true);
     }
-    
-    // Add lighting
-    addLighting();
-    
-    // Create environment
-    gameState.environment = createEnvironment(gameState.scene);
-    
-    // Create tank
-    gameState.tank = createTank(gameState.scene);
-    gameState.tank.position.set(0, 1.0, 0);
-    gameState.scene.add(gameState.tank);
-    
-    // Set up camera to follow tank
-    const tankBody = gameState.tank.getObjectByName('tankBody');
-    const angle = tankBody ? tankBody.rotation.y : 0;
-    gameState.camera.position.set(
-        gameState.tank.position.x - Math.sin(angle) * 15,
-        8,
-        gameState.tank.position.z - Math.cos(angle) * 15
-    );
-    gameState.camera.lookAt(gameState.tank.position);
-    
-    // Set up controls
-    gameState.controls = setupControls(gameState);
 }
 
 // Add lighting to the scene
@@ -381,4 +605,141 @@ function damageTank(amount) {
 }
 
 // Expose damageTank function to window object
-window.damageTank = damageTank; 
+window.damageTank = damageTank;
+
+// Add performance mode toggle to the HUD
+function addPerformanceModeToggle() {
+    const performanceToggle = document.createElement('div');
+    performanceToggle.id = 'performance-toggle';
+    performanceToggle.style.position = 'absolute';
+    performanceToggle.style.bottom = '10px';
+    performanceToggle.style.right = '10px';
+    performanceToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    performanceToggle.style.color = 'white';
+    performanceToggle.style.padding = '5px 10px';
+    performanceToggle.style.borderRadius = '5px';
+    performanceToggle.style.cursor = 'pointer';
+    performanceToggle.style.zIndex = '100';
+    performanceToggle.style.fontSize = '12px';
+    performanceToggle.style.userSelect = 'none';
+    performanceToggle.textContent = 'Performance Mode: ' + (gameState.lowPerformanceMode ? 'ON' : 'OFF');
+    
+    performanceToggle.addEventListener('click', function() {
+        gameState.lowPerformanceMode = !gameState.lowPerformanceMode;
+        
+        if (gameState.lowPerformanceMode) {
+            enableLowPerformanceMode();
+        } else {
+            disableLowPerformanceMode();
+        }
+        
+        performanceToggle.textContent = 'Performance Mode: ' + (gameState.lowPerformanceMode ? 'ON' : 'OFF');
+    });
+    
+    document.body.appendChild(performanceToggle);
+}
+
+// Enable low performance mode
+function enableLowPerformanceMode() {
+    gameState.lowPerformanceMode = true;
+    
+    if (gameState.renderer) {
+        // Reduce pixel ratio
+        gameState.renderer.setPixelRatio(1);
+        
+        // Disable shadows
+        gameState.renderer.shadowMap.enabled = false;
+        
+        // Disable antialiasing if possible
+        if (gameState.renderer.getContext) {
+            try {
+                const gl = gameState.renderer.getContext();
+                gl.disable(gl.SAMPLE_COVERAGE);
+                gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+            } catch (e) {
+                console.warn("Could not disable antialiasing:", e);
+            }
+        }
+    }
+    
+    // Reduce scene complexity
+    if (gameState.scene) {
+        // Reduce draw distance by adding fog
+        gameState.scene.fog = new THREE.Fog(0x87CEEB, 20, 60);
+        
+        // Reduce shadow quality
+        gameState.scene.traverse(function(object) {
+            if (object.isMesh) {
+                object.castShadow = false;
+                object.receiveShadow = false;
+            }
+            if (object.isLight) {
+                object.castShadow = false;
+            }
+        });
+    }
+    
+    // Show performance mode indicator
+    const indicator = document.createElement('div');
+    indicator.id = 'performance-indicator';
+    indicator.style.position = 'absolute';
+    indicator.style.top = '10px';
+    indicator.style.left = '50%';
+    indicator.style.transform = 'translateX(-50%)';
+    indicator.style.backgroundColor = 'rgba(255, 165, 0, 0.7)';
+    indicator.style.color = 'white';
+    indicator.style.padding = '5px 10px';
+    indicator.style.borderRadius = '5px';
+    indicator.style.zIndex = '100';
+    indicator.style.fontSize = '12px';
+    indicator.style.pointerEvents = 'none';
+    indicator.textContent = 'Low Performance Mode Active';
+    
+    // Remove existing indicator if present
+    const existingIndicator = document.getElementById('performance-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+    
+    document.body.appendChild(indicator);
+    
+    console.log("Low performance mode enabled");
+}
+
+// Disable low performance mode
+function disableLowPerformanceMode() {
+    gameState.lowPerformanceMode = false;
+    
+    if (gameState.renderer) {
+        // Restore pixel ratio
+        gameState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        
+        // Enable shadows
+        gameState.renderer.shadowMap.enabled = true;
+    }
+    
+    // Restore scene complexity
+    if (gameState.scene) {
+        // Remove fog
+        gameState.scene.fog = null;
+        
+        // Restore shadow quality
+        gameState.scene.traverse(function(object) {
+            if (object.isMesh) {
+                object.castShadow = true;
+                object.receiveShadow = true;
+            }
+            if (object.isLight && object.type === 'DirectionalLight') {
+                object.castShadow = true;
+            }
+        });
+    }
+    
+    // Remove performance mode indicator
+    const indicator = document.getElementById('performance-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+    
+    console.log("Low performance mode disabled");
+} 
