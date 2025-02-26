@@ -3,7 +3,7 @@
 A 3D tank game built with vanilla HTML, CSS, and JavaScript using Three.js.
 
 ## Version
-v0.14
+v0.17
 
 ## Description
 Tank World is a simple 3D tank game where you control a tank in a countryside environment. The game features basic 3D models for the tank and environment, including destroyable objects like buildings.
@@ -40,6 +40,33 @@ Tank World is a simple 3D tank game where you control a tank in a countryside en
 - No additional dependencies required
 
 ## Changelog
+### v0.17
+- Added WebGL compatibility detection to improve performance
+- Added warning message when hardware acceleration is not available
+- Implemented automatic quality adjustments for software rendering
+- Optimized renderer settings with high-performance preference
+- Limited pixel ratio for better performance on high-DPI displays
+- Added better shadow mapping for improved visual quality
+- Improved error handling for WebGL context issues
+
+### v0.16
+- Significant performance improvements by reducing excessive logging
+- Removed unnecessary console.log statements throughout the codebase
+- Reduced the number of debris objects created when destroying buildings and trees
+- Added a maximum limit to the number of debris objects that can exist simultaneously
+- Optimized the updateDebris function to handle excess debris more efficiently
+- Reduced building debris chunks from 15 to 8 and glass shards from 10 to 5
+- Reduced tree debris trunk pieces from 5 to 3 and foliage pieces from 8 to 4
+
+### v0.15
+- Fixed projectile collision detection to properly destroy objects
+- Increased projectile collision radius from 0.3 to 0.5 units
+- Added detailed position tracking for projectiles and objects
+- Increased projectile damage from 20 to 40 points
+- Extended projectile lifetime from 10 to 15 seconds
+- Improved projectile orientation to match direction of travel
+- Enhanced error handling in object destruction logic
+
 ### v0.14
 - Added realistic destruction effects for buildings and trees
 - Buildings now break into concrete chunks and glass shards when destroyed

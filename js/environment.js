@@ -376,25 +376,17 @@ function destroyObject(object, scene) {
         return false;
     }
     
-    console.log("destroyObject called for:", object.userData ? object.userData.type : "unknown");
-    
     if (object && object.userData && object.userData.destructible) {
         // Store object properties before removal
         const position = object.position.clone();
         const scale = object.scale ? object.scale.clone() : new THREE.Vector3(1, 1, 1);
         const type = object.userData.type;
         
-        console.log("Object health before damage:", object.userData.health);
-        
         // Reduce health
         object.userData.health = (object.userData.health || 100) - 20;
         
-        console.log("Object health after damage:", object.userData.health);
-        
         // If health is zero or below, destroy the object
         if (object.userData.health <= 0) {
-            console.log("Object destroyed completely:", type);
-            
             // Create debris based on object type
             if (type === 'building') {
                 // Use the advanced building debris function
@@ -425,8 +417,6 @@ function destroyObject(object, scene) {
                     scene.remove(object);
                 }
                 
-                console.log("Object removed from scene");
-                
                 // Dispose of geometries and materials to free memory
                 if (object.geometry) object.geometry.dispose();
                 if (object.material) {
@@ -445,11 +435,9 @@ function destroyObject(object, scene) {
             
             return true; // Object was destroyed
         } else {
-            console.log("Object damaged but not destroyed. Health:", object.userData.health);
             return false; // Object was damaged but not destroyed
         }
     } else {
-        console.log("Object is not destructible:", object.userData ? object.userData.type : "unknown");
         return false;
     }
 }
@@ -519,9 +507,27 @@ function updateDebris(scene, delta) {
         const debrisObjects = [];
         
         try {
+            // Limit the number of debris objects to improve performance
+            let debrisCount = 0;
+            const MAX_DEBRIS = 100; // Maximum number of debris objects to process
+            
             scene.traverse(function(object) {
                 if (object && object.userData && object.userData.type === 'debris') {
-                    debrisObjects.push(object);
+                    if (debrisCount < MAX_DEBRIS) {
+                        debrisObjects.push(object);
+                        debrisCount++;
+                    } else {
+                        // Remove excess debris to improve performance
+                        scene.remove(object);
+                        if (object.geometry) object.geometry.dispose();
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach(material => material.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    }
                 }
             });
         } catch (error) {
@@ -599,8 +605,8 @@ function createTreeDebris(position, treeParts, scene) {
     const debrisGroup = new THREE.Group();
     debrisGroup.position.copy(position);
     
-    // Create debris for trunk
-    const trunkPieces = 5; // Number of trunk pieces
+    // Create debris for trunk - REDUCED from 5 to 3 pieces
+    const trunkPieces = 3; 
     const trunkMaterial = MODEL_MATERIALS.trunk.clone();
     
     for (let i = 0; i < trunkPieces; i++) {
@@ -691,8 +697,8 @@ function createTreeDebris(position, treeParts, scene) {
         }
     }
     
-    // Create debris for foliage
-    const foliagePieces = 8; // Number of foliage pieces
+    // Create debris for foliage - REDUCED from 8 to 4 pieces
+    const foliagePieces = 4;
     const foliageMaterial = MODEL_MATERIALS.foliage.clone();
     
     for (let i = 0; i < foliagePieces; i++) {
@@ -750,8 +756,8 @@ function createBuildingDebris(position, scale, scene) {
     const height = scale ? scale.y * 4 : 4;
     const depth = scale ? scale.z * 5 : 5;
     
-    // Create concrete chunks
-    const chunkCount = 15;
+    // Create concrete chunks - REDUCED from 15 to 8
+    const chunkCount = 8;
     for (let i = 0; i < chunkCount; i++) {
         // Create a concrete chunk
         const size = 0.4 + Math.random() * 0.8;
@@ -810,8 +816,8 @@ function createBuildingDebris(position, scale, scene) {
         debrisGroup.add(chunk);
     }
     
-    // Add some window glass shards
-    const glassCount = 10;
+    // Add some window glass shards - REDUCED from 10 to 5
+    const glassCount = 5;
     for (let i = 0; i < glassCount; i++) {
         // Create a glass shard
         const geometry = new THREE.PlaneGeometry(0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5);

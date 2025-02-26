@@ -461,7 +461,8 @@ function updateProjectiles(scene, delta) {
             }
         });
 
-        console.log("Updating", projectiles.length, "projectiles");
+        // Only log projectile count if debugging is needed
+        // console.log("Updating", projectiles.length, "projectiles");
         
         for (let i = 0; i < projectiles.length; i++) {
             const projectile = projectiles[i];
@@ -519,7 +520,7 @@ function updateProjectiles(scene, delta) {
                     }
                 }
                 
-                console.log("Projectile removed due to lifetime expiration");
+                // console.log("Projectile removed due to lifetime expiration");
                 continue;
             }
             
@@ -532,9 +533,9 @@ function updateProjectiles(scene, delta) {
             const collided = checkProjectileCollisions(projectile, scene);
             
             // If collision occurred, the projectile has been removed from the scene
-            if (collided) {
-                console.log("Projectile collision detected and handled");
-            }
+            // if (collided) {
+            //     console.log("Projectile collision detected and handled");
+            // }
         }
     } catch (error) {
         console.warn("Error in updateProjectiles:", error);
@@ -883,7 +884,7 @@ function checkProjectileCollisions(projectile, scene) {
             
             // Remove projectile
             scene.remove(projectile);
-            console.log("Projectile hit ground at:", projectile.position.x, 0, projectile.position.z);
+            // console.log("Projectile hit ground at:", projectile.position.x, 0, projectile.position.z);
             return true;
         }
         
@@ -903,8 +904,8 @@ function checkProjectileCollisions(projectile, scene) {
             return false;
         }
         
-        console.log("Projectile position:", projectile.position.x, projectile.position.y, projectile.position.z);
-        console.log("Checking", collidableObjects.length, "objects for collision");
+        // console.log("Projectile position:", projectile.position.x, projectile.position.y, projectile.position.z);
+        // console.log("Checking", collidableObjects.length, "objects for collision");
         
         // Check each object for collision
         for (let i = 0; i < collidableObjects.length; i++) {
@@ -919,10 +920,10 @@ function checkProjectileCollisions(projectile, scene) {
             // Get object size for collision detection
             const objectSize = getDefaultObjectSize(object);
             
-            console.log("Object:", object.userData.type, "at position:", object.position.x, object.position.y, object.position.z, "distance:", distance, "size:", objectSize);
+            // console.log("Object:", object.userData.type, "at position:", object.position.x, object.position.y, object.position.z, "distance:", distance, "size:", objectSize);
             
             if (distance < (projectileRadius + objectSize)) {
-                console.log("COLLISION DETECTED with", object.userData.type, "at distance", distance);
+                // console.log("COLLISION DETECTED with", object.userData.type, "at distance", distance);
                 
                 // Create explosion at impact point
                 createExplosion(projectile.position.clone(), scene);
@@ -936,7 +937,7 @@ function checkProjectileCollisions(projectile, scene) {
                 // Damage the object
                 if (window.destroyObject && targetObject.userData && targetObject.userData.destructible) {
                     try {
-                        console.log("Attempting to destroy object:", targetObject.userData.type);
+                        // console.log("Attempting to destroy object:", targetObject.userData.type);
                         
                         // Apply more damage from projectiles than from tank collisions
                         // Reduce health by 40 points (instead of the default 20)
@@ -944,7 +945,7 @@ function checkProjectileCollisions(projectile, scene) {
                         
                         // Call destroyObject to handle the destruction
                         const destroyed = window.destroyObject(targetObject, scene);
-                        console.log("Object destroyed:", destroyed);
+                        // console.log("Object destroyed:", destroyed);
                         
                         // If the object is a building, create a larger explosion
                         if (targetObject.userData.type === 'building') {

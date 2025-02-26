@@ -26,6 +26,97 @@ const exitButton = document.getElementById('exit-button');
 const healthFill = document.querySelector('.health-fill');
 const gameCanvas = document.getElementById('game-canvas');
 
+// Check WebGL compatibility
+function checkWebGLCompatibility() {
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        
+        // Check if WebGL is available
+        if (!gl) {
+            showWebGLWarning('WebGL is not supported by your browser. The game may run slowly or not at all.');
+            return false;
+        }
+        
+        // Check for hardware acceleration
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            if (renderer.indexOf('SwiftShader') !== -1 || 
+                renderer.indexOf('Software') !== -1 || 
+                renderer.indexOf('llvmpipe') !== -1) {
+                showWebGLWarning('Hardware acceleration is not enabled. The game will run slowly. Please enable hardware acceleration in your browser settings.');
+                return false;
+            }
+        }
+        
+        return true;
+    } catch (e) {
+        console.warn('Error checking WebGL compatibility:', e);
+        showWebGLWarning('Could not check WebGL compatibility. The game may run slowly.');
+        return false;
+    }
+}
+
+// Show WebGL warning message
+function showWebGLWarning(message) {
+    // Create warning element if it doesn't exist
+    if (!document.getElementById('webgl-warning')) {
+        const warning = document.createElement('div');
+        warning.id = 'webgl-warning';
+        warning.style.position = 'absolute';
+        warning.style.bottom = '10px';
+        warning.style.left = '10px';
+        warning.style.right = '10px';
+        warning.style.backgroundColor = 'rgba(255, 50, 50, 0.8)';
+        warning.style.color = 'white';
+        warning.style.padding = '10px';
+        warning.style.borderRadius = '5px';
+        warning.style.zIndex = '1000';
+        warning.style.textAlign = 'center';
+        warning.style.fontSize = '14px';
+        
+        // Add a close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.style.position = 'absolute';
+        closeButton.style.right = '5px';
+        closeButton.style.top = '5px';
+        closeButton.style.background = 'none';
+        closeButton.style.border = 'none';
+        closeButton.style.color = 'white';
+        closeButton.style.fontSize = '20px';
+        closeButton.style.cursor = 'pointer';
+        closeButton.onclick = function() {
+            warning.style.display = 'none';
+        };
+        
+        warning.appendChild(closeButton);
+        document.body.appendChild(warning);
+    }
+    
+    // Update warning message
+    const warningElement = document.getElementById('webgl-warning');
+    warningElement.textContent = message;
+    warningElement.style.display = 'block';
+    
+    // Add the close button back after changing text content
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.style.position = 'absolute';
+    closeButton.style.right = '5px';
+    closeButton.style.top = '5px';
+    closeButton.style.background = 'none';
+    closeButton.style.border = 'none';
+    closeButton.style.color = 'white';
+    closeButton.style.fontSize = '20px';
+    closeButton.style.cursor = 'pointer';
+    closeButton.onclick = function() {
+        warningElement.style.display = 'none';
+    };
+    warningElement.appendChild(closeButton);
+}
+
 // Event Listeners
 startButton.addEventListener('click', startGame);
 exitButton.addEventListener('click', exitGame);
@@ -33,6 +124,9 @@ window.addEventListener('resize', onWindowResize);
 
 // Initialize the game
 function init() {
+    // Check WebGL compatibility before initializing
+    checkWebGLCompatibility();
+    
     // Set up Three.js scene
     gameState.scene = new THREE.Scene();
     gameState.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
@@ -46,10 +140,34 @@ function init() {
     // Set up renderer
     gameState.renderer = new THREE.WebGLRenderer({ 
         canvas: gameCanvas,
-        antialias: true 
+        antialias: true,
+        powerPreference: 'high-performance'
     });
     gameState.renderer.setSize(window.innerWidth, window.innerHeight);
     gameState.renderer.shadowMap.enabled = true;
+    gameState.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better quality shadows
+    
+    // Performance optimizations
+    gameState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Limit pixel ratio for better performance
+    
+    // Check if we're running in software mode and adjust settings
+    const gl = gameState.renderer.getContext();
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        if (renderer.indexOf('SwiftShader') !== -1 || 
+            renderer.indexOf('Software') !== -1 || 
+            renderer.indexOf('llvmpipe') !== -1) {
+            
+            // Reduce quality for software rendering
+            gameState.renderer.setPixelRatio(1);
+            gameState.renderer.shadowMap.enabled = false;
+            gameState.renderer.antialias = false;
+            
+            // Show performance mode message
+            console.log("Running in low-performance mode due to software rendering");
+        }
+    }
     
     // Add lighting
     addLighting();
