@@ -23,20 +23,36 @@ function createEnvironment(scene) {
     return environment;
 }
 
+// Reference to MODEL_MATERIALS from models.js
+// This will be used for debris creation
+// Use existing MODEL_MATERIALS if available, otherwise create default materials
+if (!window.MODEL_MATERIALS) {
+    window.MODEL_MATERIALS = {
+        trunk: new THREE.MeshPhongMaterial({ color: 0x8b4513 }), // Brown
+        foliage: new THREE.MeshPhongMaterial({ color: 0x2e8b57 }) // Green
+    };
+}
+
+// Reusable geometries and materials for better performance
+const ENVIRONMENT_MATERIALS = {
+    ground: new THREE.MeshPhongMaterial({ 
+        color: 0x2e8b57,  // Dark sea green
+        side: THREE.DoubleSide,
+        flatShading: true
+    }),
+    boundary: new THREE.MeshPhongMaterial({ color: 0x8b4513 }), // Brown
+    rock: new THREE.MeshPhongMaterial({ color: 0x808080 }), // Gray
+    rubble: new THREE.MeshPhongMaterial({ color: 0x808080 }),
+    roof: new THREE.MeshPhongMaterial({ color: 0x8b4513 }) // Brown
+};
+
 // Create the ground
 function createGround(width, depth) {
     // Create ground geometry
     const groundGeometry = new THREE.PlaneGeometry(width, depth, 32, 32);
     
-    // Create ground material with grass texture
-    const groundMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x2e8b57,  // Dark sea green (darker than the previous 0x7cfc00 lawn green)
-        side: THREE.DoubleSide,
-        flatShading: true
-    });
-    
     // Create ground mesh
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    const ground = new THREE.Mesh(groundGeometry, ENVIRONMENT_MATERIALS.ground);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     
@@ -129,13 +145,12 @@ function addRocks(environment) {
 
 // Add boundaries to the environment
 function addBoundaries(environment) {
-    const boundaryMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 }); // Brown
+    // Create geometries for boundaries
+    const northSouthGeometry = new THREE.BoxGeometry(100, 5, 2);
+    const eastWestGeometry = new THREE.BoxGeometry(2, 5, 100);
     
     // North boundary
-    const northBoundary = new THREE.Mesh(
-        new THREE.BoxGeometry(100, 5, 2),
-        boundaryMaterial
-    );
+    const northBoundary = new THREE.Mesh(northSouthGeometry, ENVIRONMENT_MATERIALS.boundary);
     northBoundary.position.set(0, 2.5, -50);
     northBoundary.receiveShadow = true;
     northBoundary.castShadow = true;
@@ -144,10 +159,7 @@ function addBoundaries(environment) {
     environment.add(northBoundary);
     
     // South boundary
-    const southBoundary = new THREE.Mesh(
-        new THREE.BoxGeometry(100, 5, 2),
-        boundaryMaterial
-    );
+    const southBoundary = new THREE.Mesh(northSouthGeometry, ENVIRONMENT_MATERIALS.boundary);
     southBoundary.position.set(0, 2.5, 50);
     southBoundary.receiveShadow = true;
     southBoundary.castShadow = true;
@@ -156,10 +168,7 @@ function addBoundaries(environment) {
     environment.add(southBoundary);
     
     // East boundary
-    const eastBoundary = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 5, 100),
-        boundaryMaterial
-    );
+    const eastBoundary = new THREE.Mesh(eastWestGeometry, ENVIRONMENT_MATERIALS.boundary);
     eastBoundary.position.set(50, 2.5, 0);
     eastBoundary.receiveShadow = true;
     eastBoundary.castShadow = true;
@@ -168,10 +177,7 @@ function addBoundaries(environment) {
     environment.add(eastBoundary);
     
     // West boundary
-    const westBoundary = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 5, 100),
-        boundaryMaterial
-    );
+    const westBoundary = new THREE.Mesh(eastWestGeometry, ENVIRONMENT_MATERIALS.boundary);
     westBoundary.position.set(-50, 2.5, 0);
     westBoundary.receiveShadow = true;
     westBoundary.castShadow = true;
@@ -188,12 +194,6 @@ function isWithinBoundaries(position, margin = 0) {
         position.z > -50 + margin &&
         position.z < 50 - margin
     );
-}
-
-// Update environment objects (for destructible objects)
-function updateEnvironment(environment, deltaTime) {
-    // This function will be used to update any dynamic environment elements
-    // For example, animations for destroyed buildings, falling trees, etc.
 }
 
 // Check for projectile collisions with environment objects
@@ -225,10 +225,18 @@ function checkProjectileCollisions(projectile, scene) {
         
         if (distance < (projectileRadius + objectSize)) {
             // Collision detected
+            console.log("Collision detected in checkProjectileCollisions with:", object);
+            
+            // Find the parent object if this is a child (like a window or door)
+            let targetObject = object;
+            while (targetObject.parent && !targetObject.userData.destructible && targetObject.parent.userData) {
+                targetObject = targetObject.parent;
+            }
+            
             createExplosion(projectile.position.clone(), scene);
             
             // Damage the object
-            destroyObject(object, scene);
+            destroyObject(targetObject, scene);
             
             // Remove the projectile
             scene.remove(projectile);
@@ -244,24 +252,32 @@ function checkProjectileCollisions(projectile, scene) {
 
 // Get approximate size of an object for collision detection
 function getObjectSize(object) {
-    // If object has a geometry with a bounding sphere, use that
+    // Get object size based on type
+    if (object.userData.type === 'building') return 3.0;
+    if (object.userData.type === 'tree') return 1.5;
+    if (object.userData.type === 'boundary') return 5.0;
+    
+    // If no type, try to calculate from geometry
     if (object.geometry && object.geometry.boundingSphere) {
         return object.geometry.boundingSphere.radius;
     }
     
-    // Otherwise estimate based on object type
-    switch (object.userData.type) {
-        case 'building':
-            return 3;
-        case 'tree':
-            return 2;
-        case 'rock':
-            return 1;
-        case 'boundary':
-            return 1;
-        default:
-            return 1;
-    }
+    // Default size
+    return 1.0;
+}
+
+// Expose functions to window object
+window.destroyObject = destroyObject;
+window.createExplosion = createExplosion;
+window.createDebris = createDebris;
+window.updateDebris = updateDebris;
+window.getObjectSize = getObjectSize;
+
+// Reusable geometries for explosion particles
+const explosionGeometries = [];
+for (let i = 0; i < 5; i++) {
+    const size = 0.1 + Math.random() * 0.2;
+    explosionGeometries.push(new THREE.SphereGeometry(size, 8, 8));
 }
 
 // Create explosion effect at position
@@ -273,13 +289,13 @@ function createExplosion(position, scene) {
     // Create several particles for the explosion
     const particleCount = 15;
     for (let i = 0; i < particleCount; i++) {
-        const size = 0.1 + Math.random() * 0.2;
-        const geometry = new THREE.SphereGeometry(size, 8, 8);
         const material = new THREE.MeshBasicMaterial({ 
             color: Math.random() > 0.5 ? 0xff4500 : 0xffcc00,
             transparent: true,
             opacity: 0.8
         });
+        // Use a pre-created geometry from the pool
+        const geometry = explosionGeometries[i % explosionGeometries.length];
         const particle = new THREE.Mesh(geometry, material);
         
         // Random position within explosion radius
@@ -349,46 +365,504 @@ function updateExplosions(scene, deltaTime) {
 
 // Handle object destruction
 function destroyObject(object, scene) {
-    if (!object.userData.destructible) return;
+    // Check if the object is destructible and scene is valid
+    if (!scene || typeof scene.add !== 'function') {
+        console.warn("Invalid scene in destroyObject");
+        return false;
+    }
     
-    // Reduce health
-    object.userData.health -= 20;
+    if (!object) {
+        console.warn("Invalid object in destroyObject");
+        return false;
+    }
     
-    // If health is depleted, destroy the object
-    if (object.userData.health <= 0) {
-        // For buildings, replace with rubble
-        if (object.userData.type === 'building') {
-            createRubble(object.position, scene);
-        }
+    console.log("destroyObject called for:", object.userData ? object.userData.type : "unknown");
+    
+    if (object && object.userData && object.userData.destructible) {
+        // Store object properties before removal
+        const position = object.position.clone();
+        const scale = object.scale ? object.scale.clone() : new THREE.Vector3(1, 1, 1);
+        const type = object.userData.type;
         
-        // Remove the object from the scene
-        scene.remove(object);
+        console.log("Object health before damage:", object.userData.health);
+        
+        // Reduce health
+        object.userData.health = (object.userData.health || 100) - 20;
+        
+        console.log("Object health after damage:", object.userData.health);
+        
+        // If health is zero or below, destroy the object
+        if (object.userData.health <= 0) {
+            console.log("Object destroyed completely:", type);
+            
+            // Create debris based on object type
+            if (type === 'building') {
+                // Use the advanced building debris function
+                createBuildingDebris(position, scale, scene);
+            } else if (type === 'tree') {
+                // Collect tree parts for more realistic debris
+                const treeParts = [];
+                object.traverse(function(child) {
+                    if (child.isMesh) {
+                        treeParts.push(child);
+                    }
+                });
+                
+                // Use the advanced tree debris function
+                createTreeDebris(position, treeParts, scene);
+            }
+            
+            // Create explosion
+            if (typeof createExplosion === 'function') {
+                createExplosion(position, scene);
+            }
+            
+            // Remove the object from the scene
+            try {
+                if (object.parent) {
+                    object.parent.remove(object);
+                } else {
+                    scene.remove(object);
+                }
+                
+                console.log("Object removed from scene");
+                
+                // Dispose of geometries and materials to free memory
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach(material => material.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+                
+                // Force garbage collection hint
+                if (window.gc) window.gc();
+            } catch (error) {
+                console.warn("Error removing object from scene:", error);
+            }
+            
+            return true; // Object was destroyed
+        } else {
+            console.log("Object damaged but not destroyed. Health:", object.userData.health);
+            return false; // Object was damaged but not destroyed
+        }
+    } else {
+        console.log("Object is not destructible:", object.userData ? object.userData.type : "unknown");
+        return false;
     }
 }
 
-// Create rubble after destroying a building
-function createRubble(position, scene) {
-    const rubbleGroup = new THREE.Group();
-    rubbleGroup.position.copy(position);
+// Create debris for destroyed objects
+function createDebris(position, size, color) {
+    // Create a small cube for debris
+    const geometry = new THREE.BoxGeometry(size, size, size);
+    const material = new THREE.MeshStandardMaterial({ 
+        color: color,
+        roughness: 0.8,
+        metalness: 0.2
+    });
     
-    // Create several small pieces of rubble
-    for (let i = 0; i < 10; i++) {
-        const size = 0.3 + Math.random() * 0.5;
-        const geometry = new THREE.DodecahedronGeometry(size, 0);
-        const material = new THREE.MeshPhongMaterial({ color: 0x808080 });
-        const piece = new THREE.Mesh(geometry, material);
+    const debris = new THREE.Mesh(geometry, material);
+    
+    // Position debris near the destroyed object with some randomness
+    debris.position.set(
+        position.x + (Math.random() - 0.5) * 2,
+        position.y + Math.random() * 2,
+        position.z + (Math.random() - 0.5) * 2
+    );
+    
+    // Add random rotation
+    debris.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+    );
+    
+    // Add physics properties for animation
+    debris.userData.velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 0.1,
+        Math.random() * 0.2,
+        (Math.random() - 0.5) * 0.1
+    );
+    
+    debris.userData.rotationSpeed = new THREE.Vector3(
+        Math.random() * 0.1,
+        Math.random() * 0.1,
+        Math.random() * 0.1
+    );
+    
+    debris.userData.gravity = 0.01;
+    debris.userData.lifespan = 100; // Frames until removal
+    debris.userData.type = 'debris';
+    
+    return debris;
+}
+
+// Update debris physics and animation
+function updateDebris(scene, delta) {
+    try {
+        // Check if scene is defined before trying to traverse it
+        if (!scene) {
+            console.warn("Scene is undefined in updateDebris");
+            return;
+        }
         
-        // Randomize position within the building footprint
-        piece.position.set(
-            (Math.random() - 0.5) * 3,
-            Math.random() * 0.5,
-            (Math.random() - 0.5) * 3
-        );
+        // Check if scene.traverse is a function
+        if (typeof scene.traverse !== 'function') {
+            console.warn("scene.traverse is not a function in updateDebris");
+            return;
+        }
         
-        piece.castShadow = true;
-        piece.receiveShadow = true;
-        rubbleGroup.add(piece);
+        // Create a safe copy of debris objects to avoid issues with modifying during traversal
+        const debrisObjects = [];
+        
+        try {
+            scene.traverse(function(object) {
+                if (object && object.userData && object.userData.type === 'debris') {
+                    debrisObjects.push(object);
+                }
+            });
+        } catch (error) {
+            console.warn("Error traversing scene for debris:", error);
+            return;
+        }
+        
+        // Update each debris object
+        for (let i = 0; i < debrisObjects.length; i++) {
+            const object = debrisObjects[i];
+            
+            // Skip if object is no longer valid
+            if (!object || !object.userData) continue;
+            
+            try {
+                // Apply gravity
+                object.userData.velocity.y -= object.userData.gravity;
+                
+                // Update position
+                object.position.x += object.userData.velocity.x;
+                object.position.y += object.userData.velocity.y;
+                object.position.z += object.userData.velocity.z;
+                
+                // Update rotation
+                object.rotation.x += object.userData.rotationSpeed.x;
+                object.rotation.y += object.userData.rotationSpeed.y;
+                object.rotation.z += object.userData.rotationSpeed.z;
+                
+                // Check for ground collision
+                if (object.position.y < 0) {
+                    object.position.y = 0;
+                    object.userData.velocity.y = -object.userData.velocity.y * 0.3; // Bounce with damping
+                    object.userData.velocity.x *= 0.8; // Friction
+                    object.userData.velocity.z *= 0.8; // Friction
+                }
+                
+                // Reduce lifespan
+                object.userData.lifespan--;
+                
+                // Remove if lifespan is over
+                if (object.userData.lifespan <= 0) {
+                    try {
+                        scene.remove(object);
+                        
+                        // Dispose of geometry and material
+                        if (object.geometry) object.geometry.dispose();
+                        if (object.material) {
+                            if (Array.isArray(object.material)) {
+                                object.material.forEach(material => material.dispose());
+                            } else {
+                                object.material.dispose();
+                            }
+                        }
+                    } catch (error) {
+                        console.warn("Error removing debris:", error);
+                    }
+                }
+            } catch (error) {
+                console.warn("Error updating debris object:", error);
+                // Try to remove problematic object
+                try {
+                    scene.remove(object);
+                } catch (e) {
+                    // Ignore errors when trying to clean up
+                }
+            }
+        }
+    } catch (error) {
+        console.warn("Critical error in updateDebris:", error);
+    }
+}
+
+// Create tree debris when a tree is destroyed
+function createTreeDebris(position, treeParts, scene) {
+    const debrisGroup = new THREE.Group();
+    debrisGroup.position.copy(position);
+    
+    // Create debris for trunk
+    const trunkPieces = 5; // Number of trunk pieces
+    const trunkMaterial = MODEL_MATERIALS.trunk.clone();
+    
+    for (let i = 0; i < trunkPieces; i++) {
+        // Find the trunk in the tree parts
+        let trunkGeometry = null;
+        let trunkHeight = 0;
+        let trunkRadius = 0.2;
+        
+        // Use the first cylinder-like geometry as the trunk reference
+        treeParts.forEach(part => {
+            if (part.geometry && part.geometry.type.includes('Cylinder')) {
+                trunkGeometry = part.geometry;
+                trunkHeight = part.geometry.parameters.height;
+                trunkRadius = part.geometry.parameters.radiusTop;
+            }
+        });
+        
+        if (!trunkGeometry) {
+            // Default trunk piece if we couldn't find the original
+            const pieceGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.4, 8);
+            const piece = new THREE.Mesh(pieceGeometry, trunkMaterial);
+            
+            // Random position and rotation
+            piece.position.set(
+                (Math.random() - 0.5) * 2,
+                Math.random() * 1.5,
+                (Math.random() - 0.5) * 2
+            );
+            piece.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            
+            // Add physics properties
+            piece.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 5,
+                Math.random() * 5 + 2,
+                (Math.random() - 0.5) * 5
+            );
+            piece.userData.rotationSpeed = new THREE.Vector3(
+                Math.random() * 2 - 1,
+                Math.random() * 2 - 1,
+                Math.random() * 2 - 1
+            );
+            piece.userData.lifetime = 3 + Math.random() * 2;
+            piece.userData.timeAlive = 0;
+            
+            debrisGroup.add(piece);
+        } else {
+            // Create a piece of the trunk
+            const pieceHeight = trunkHeight / trunkPieces;
+            const pieceGeometry = new THREE.CylinderGeometry(
+                trunkRadius, 
+                trunkRadius * 0.8, 
+                pieceHeight, 
+                8
+            );
+            const piece = new THREE.Mesh(pieceGeometry, trunkMaterial);
+            
+            // Random position and rotation
+            piece.position.set(
+                (Math.random() - 0.5) * 2,
+                Math.random() * 1.5,
+                (Math.random() - 0.5) * 2
+            );
+            piece.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            
+            // Add physics properties
+            piece.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 5,
+                Math.random() * 5 + 2,
+                (Math.random() - 0.5) * 5
+            );
+            piece.userData.rotationSpeed = new THREE.Vector3(
+                Math.random() * 2 - 1,
+                Math.random() * 2 - 1,
+                Math.random() * 2 - 1
+            );
+            piece.userData.lifetime = 3 + Math.random() * 2;
+            piece.userData.timeAlive = 0;
+            
+            debrisGroup.add(piece);
+        }
     }
     
-    scene.add(rubbleGroup);
+    // Create debris for foliage
+    const foliagePieces = 8; // Number of foliage pieces
+    const foliageMaterial = MODEL_MATERIALS.foliage.clone();
+    
+    for (let i = 0; i < foliagePieces; i++) {
+        // Create a piece of foliage
+        const size = 0.3 + Math.random() * 0.5;
+        const pieceGeometry = new THREE.TetrahedronGeometry(size, 1);
+        const piece = new THREE.Mesh(pieceGeometry, foliageMaterial);
+        
+        // Random position and rotation
+        piece.position.set(
+            (Math.random() - 0.5) * 3,
+            Math.random() * 3 + 1,
+            (Math.random() - 0.5) * 3
+        );
+        piece.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+        
+        // Add physics properties
+        piece.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 6,
+            Math.random() * 6 + 3,
+            (Math.random() - 0.5) * 6
+        );
+        piece.userData.rotationSpeed = new THREE.Vector3(
+            Math.random() * 3 - 1.5,
+            Math.random() * 3 - 1.5,
+            Math.random() * 3 - 1.5
+        );
+        piece.userData.lifetime = 2 + Math.random() * 2;
+        piece.userData.timeAlive = 0;
+        
+        debrisGroup.add(piece);
+    }
+    
+    // Add to scene
+    scene.add(debrisGroup);
+    
+    // Add to debris array for animation
+    if (!scene.userData.debris) {
+        scene.userData.debris = [];
+    }
+    scene.userData.debris.push(debrisGroup);
+}
+
+// Create building debris when a building is destroyed
+function createBuildingDebris(position, scale, scene) {
+    const debrisGroup = new THREE.Group();
+    debrisGroup.position.copy(position);
+    
+    // Get building dimensions from scale or use defaults
+    const width = scale ? scale.x * 5 : 5;
+    const height = scale ? scale.y * 4 : 4;
+    const depth = scale ? scale.z * 5 : 5;
+    
+    // Create concrete chunks
+    const chunkCount = 15;
+    for (let i = 0; i < chunkCount; i++) {
+        // Create a concrete chunk
+        const size = 0.4 + Math.random() * 0.8;
+        const geometry = new THREE.BoxGeometry(size, size, size);
+        
+        // Distort the geometry for more realistic debris
+        const positions = geometry.attributes.position;
+        for (let j = 0; j < positions.count; j++) {
+            positions.setXYZ(
+                j,
+                positions.getX(j) * (0.8 + Math.random() * 0.4),
+                positions.getY(j) * (0.8 + Math.random() * 0.4),
+                positions.getZ(j) * (0.8 + Math.random() * 0.4)
+            );
+        }
+        positions.needsUpdate = true;
+        
+        // Create the mesh with a concrete-like material
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0xcccccc, 
+            flatShading: true 
+        });
+        const chunk = new THREE.Mesh(geometry, material);
+        
+        // Random position within building dimensions
+        chunk.position.set(
+            (Math.random() - 0.5) * width,
+            Math.random() * height,
+            (Math.random() - 0.5) * depth
+        );
+        
+        // Random rotation
+        chunk.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+        
+        // Add physics properties
+        chunk.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 8,
+            Math.random() * 10 + 5,
+            (Math.random() - 0.5) * 8
+        );
+        chunk.userData.rotationSpeed = new THREE.Vector3(
+            Math.random() * 2 - 1,
+            Math.random() * 2 - 1,
+            Math.random() * 2 - 1
+        );
+        chunk.userData.lifetime = 3 + Math.random() * 2;
+        chunk.userData.timeAlive = 0;
+        
+        chunk.castShadow = true;
+        chunk.receiveShadow = true;
+        
+        debrisGroup.add(chunk);
+    }
+    
+    // Add some window glass shards
+    const glassCount = 10;
+    for (let i = 0; i < glassCount; i++) {
+        // Create a glass shard
+        const geometry = new THREE.PlaneGeometry(0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0x87ceeb,
+            transparent: true,
+            opacity: 0.7,
+            side: THREE.DoubleSide,
+            shininess: 100
+        });
+        const shard = new THREE.Mesh(geometry, material);
+        
+        // Random position
+        shard.position.set(
+            (Math.random() - 0.5) * width * 1.5,
+            Math.random() * height * 1.5,
+            (Math.random() - 0.5) * depth * 1.5
+        );
+        
+        // Random rotation
+        shard.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+        );
+        
+        // Add physics properties
+        shard.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 10,
+            Math.random() * 8 + 4,
+            (Math.random() - 0.5) * 10
+        );
+        shard.userData.rotationSpeed = new THREE.Vector3(
+            Math.random() * 3 - 1.5,
+            Math.random() * 3 - 1.5,
+            Math.random() * 3 - 1.5
+        );
+        shard.userData.lifetime = 2 + Math.random() * 1;
+        shard.userData.timeAlive = 0;
+        
+        shard.castShadow = true;
+        
+        debrisGroup.add(shard);
+    }
+    
+    // Add to scene
+    scene.add(debrisGroup);
+    
+    // Add to debris array for animation
+    if (!scene.userData.debris) {
+        scene.userData.debris = [];
+    }
+    scene.userData.debris.push(debrisGroup);
 } 

@@ -9,8 +9,14 @@ const gameState = {
     controls: null,
     environment: null,
     lastTime: 0,
-    objects: []
+    objects: [],
+    keys: {}, // Add keys object for controls
+    mouseMovement: { x: 0, y: 0 }, // Add mouse movement tracking
+    mouseDown: false // Add mouse down state
 };
+
+// Expose gameState to window object
+window.gameState = gameState;
 
 // DOM Elements
 const mainMenu = document.getElementById('main-menu');
@@ -53,7 +59,7 @@ function init() {
     
     // Create tank
     gameState.tank = createTank(gameState.scene);
-    gameState.tank.position.set(0, 0.5, 0);
+    gameState.tank.position.set(0, 1.0, 0);
     gameState.scene.add(gameState.tank);
     
     // Set up camera to follow tank
@@ -111,14 +117,14 @@ function startGame() {
     
     // Start animation loop
     gameState.lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(animate);
 }
 
 // Reset tank position and rotation
 function resetTankPosition() {
     if (gameState.tank) {
         // Reset position
-        gameState.tank.position.set(0, 0.5, 0);
+        gameState.tank.position.set(0, 1.0, 0);
         
         // Reset rotation
         const tankBody = gameState.tank.getObjectByName('tankBody');
@@ -220,27 +226,28 @@ function onWindowResize() {
 }
 
 // Main game loop
-function gameLoop(currentTime) {
-    if (!gameState.isPlaying) return;
+function animate() {
+    requestAnimationFrame(animate);
     
-    const deltaTime = (currentTime - gameState.lastTime) / 1000;
+    // Calculate delta time
+    const currentTime = performance.now();
+    const delta = (currentTime - gameState.lastTime) / 1000; // Convert to seconds
     gameState.lastTime = currentTime;
     
-    // Update controls
-    if (gameState.controls) {
-        gameState.controls.update(deltaTime);
+    // Update tank and controls
+    if (window.updateTank) {
+        window.updateTank(delta);
     }
     
-    // Render scene
-    gameState.renderer.render(gameState.scene, gameState.camera);
+    // Update debris - only if scene is defined and valid
+    if (window.updateDebris && gameState.scene && typeof gameState.scene.traverse === 'function') {
+        window.updateDebris(gameState.scene, delta);
+    }
     
-    // Continue loop
-    requestAnimationFrame(gameLoop);
-}
-
-// Check for collisions between objects
-function checkCollisions() {
-    // Simple collision detection will be implemented here
+    // Render the scene
+    if (gameState.renderer && gameState.scene && gameState.camera) {
+        gameState.renderer.render(gameState.scene, gameState.camera);
+    }
 }
 
 // Damage the tank
@@ -253,4 +260,7 @@ function damageTank(amount) {
     }
     
     updateHealthBar();
-} 
+}
+
+// Expose damageTank function to window object
+window.damageTank = damageTank; 

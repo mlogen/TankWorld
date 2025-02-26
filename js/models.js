@@ -1,3 +1,43 @@
+// Reusable geometries and materials for better performance
+const MODEL_GEOMETRIES = {
+    tankBody: new THREE.BoxGeometry(2, 0.8, 3),
+    tankTrack: new THREE.BoxGeometry(0.4, 0.4, 3.2),
+    wheel: new THREE.CylinderGeometry(0.2, 0.2, 0.4, 8),
+    turretBase: new THREE.CylinderGeometry(0.7, 0.8, 0.5, 8),
+    turretTop: new THREE.SphereGeometry(0.7, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+    cannonBarrel: new THREE.CylinderGeometry(0.1, 0.1, 2, 8),
+    cannonBase: new THREE.CylinderGeometry(0.2, 0.2, 0.3, 8),
+    window: new THREE.PlaneGeometry(0.5, 0.5),
+    door: new THREE.PlaneGeometry(0.6, 1)
+};
+
+const MODEL_MATERIALS = {
+    tankBody: new THREE.MeshPhongMaterial({ color: 0x355e3b }), // Dark green
+    tankTrack: new THREE.MeshPhongMaterial({ color: 0x1a1a1a }), // Dark gray
+    turret: new THREE.MeshPhongMaterial({ color: 0x2d4f2d }), // Slightly lighter green
+    cannon: new THREE.MeshPhongMaterial({ color: 0x1a1a1a }),
+    wheel: new THREE.MeshPhongMaterial({ color: 0x0a0a0a }),
+    window: new THREE.MeshPhongMaterial({ 
+        color: 0x87ceeb,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    }),
+    door: new THREE.MeshPhongMaterial({ 
+        color: 0x8b4513,
+        side: THREE.DoubleSide
+    }),
+    trunk: new THREE.MeshPhongMaterial({ color: 0x8b4513 }), // Brown
+    foliage: new THREE.MeshPhongMaterial({ color: 0x2e8b57 }) // Green
+};
+
+// Expose MODEL_MATERIALS to window object for use in other files
+window.MODEL_MATERIALS = MODEL_MATERIALS;
+window.createTank = createTank;
+window.createBuilding = createBuilding;
+window.createTree = createTree;
+window.createRock = createRock;
+
 // Create a tank model
 function createTank() {
     // Create a group to hold all tank parts
@@ -26,23 +66,18 @@ function createTank() {
 // Create the tank body
 function createTankBody() {
     // Main body
-    const bodyGeometry = new THREE.BoxGeometry(2, 0.8, 3);
-    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x355e3b }); // Dark green
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    const body = new THREE.Mesh(MODEL_GEOMETRIES.tankBody, MODEL_MATERIALS.tankBody);
     body.castShadow = true;
     body.receiveShadow = true;
     
     // Tank tracks
-    const trackGeometry = new THREE.BoxGeometry(0.4, 0.4, 3.2);
-    const trackMaterial = new THREE.MeshPhongMaterial({ color: 0x1a1a1a }); // Dark gray
-    
-    const leftTrack = new THREE.Mesh(trackGeometry, trackMaterial);
+    const leftTrack = new THREE.Mesh(MODEL_GEOMETRIES.tankTrack, MODEL_MATERIALS.tankTrack);
     leftTrack.position.set(-1, -0.2, 0);
     leftTrack.castShadow = true;
     leftTrack.receiveShadow = true;
     body.add(leftTrack);
     
-    const rightTrack = new THREE.Mesh(trackGeometry, trackMaterial);
+    const rightTrack = new THREE.Mesh(MODEL_GEOMETRIES.tankTrack, MODEL_MATERIALS.tankTrack);
     rightTrack.position.set(1, -0.2, 0);
     rightTrack.castShadow = true;
     rightTrack.receiveShadow = true;
@@ -57,25 +92,22 @@ function createTankBody() {
 
 // Add details to tank tracks
 function addTrackDetails(track) {
-    const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.4, 8);
-    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x0a0a0a });
-    
     // Front wheel
-    const frontWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    const frontWheel = new THREE.Mesh(MODEL_GEOMETRIES.wheel, MODEL_MATERIALS.wheel);
     frontWheel.rotation.z = Math.PI / 2;
     frontWheel.position.z = 1.2;
     frontWheel.castShadow = true;
     track.add(frontWheel);
     
     // Back wheel
-    const backWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    const backWheel = new THREE.Mesh(MODEL_GEOMETRIES.wheel, MODEL_MATERIALS.wheel);
     backWheel.rotation.z = Math.PI / 2;
     backWheel.position.z = -1.2;
     backWheel.castShadow = true;
     track.add(backWheel);
     
     // Middle wheel
-    const middleWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    const middleWheel = new THREE.Mesh(MODEL_GEOMETRIES.wheel, MODEL_MATERIALS.wheel);
     middleWheel.rotation.z = Math.PI / 2;
     middleWheel.position.z = 0;
     middleWheel.castShadow = true;
@@ -85,15 +117,11 @@ function addTrackDetails(track) {
 // Create the tank turret
 function createTankTurret() {
     // Turret base
-    const turretGeometry = new THREE.CylinderGeometry(0.7, 0.8, 0.5, 8);
-    const turretMaterial = new THREE.MeshPhongMaterial({ color: 0x2d4f2d }); // Slightly lighter green
-    const turret = new THREE.Mesh(turretGeometry, turretMaterial);
+    const turret = new THREE.Mesh(MODEL_GEOMETRIES.turretBase, MODEL_MATERIALS.turret);
     turret.castShadow = true;
     
     // Turret top
-    const topGeometry = new THREE.SphereGeometry(0.7, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-    const topMaterial = new THREE.MeshPhongMaterial({ color: 0x2d4f2d });
-    const top = new THREE.Mesh(topGeometry, topMaterial);
+    const top = new THREE.Mesh(MODEL_GEOMETRIES.turretTop, MODEL_MATERIALS.turret);
     top.position.y = 0.25;
     top.castShadow = true;
     turret.add(top);
@@ -107,18 +135,14 @@ function createTankCannon() {
     const cannon = new THREE.Group();
     
     // Main cannon barrel
-    const barrelGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
-    const barrelMaterial = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
-    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+    const barrel = new THREE.Mesh(MODEL_GEOMETRIES.cannonBarrel, MODEL_MATERIALS.cannon);
     barrel.rotation.x = Math.PI / 2;
     barrel.position.z = 1;
     barrel.castShadow = true;
     cannon.add(barrel);
     
     // Cannon base
-    const baseGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 8);
-    const baseMaterial = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
-    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    const base = new THREE.Mesh(MODEL_GEOMETRIES.cannonBase, MODEL_MATERIALS.cannon);
     base.rotation.x = Math.PI / 2;
     base.castShadow = true;
     cannon.add(base);
@@ -141,8 +165,7 @@ function createBuilding(width, height, depth, color) {
     
     // Add roof
     const roofGeometry = new THREE.BoxGeometry(width + 0.2, 0.2, depth + 0.2);
-    const roofMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 }); // Brown
-    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    const roof = new THREE.Mesh(roofGeometry, MODEL_MATERIALS.door); // Reuse the brown material
     roof.position.y = height + 0.1;
     roof.castShadow = true;
     buildingGroup.add(roof);
@@ -159,43 +182,28 @@ function createBuilding(width, height, depth, color) {
 
 // Add details to buildings
 function addBuildingDetails(building, width, height, depth) {
-    // Add windows
-    const windowGeometry = new THREE.PlaneGeometry(0.5, 0.5);
-    const windowMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x87ceeb,
-        transparent: true,
-        opacity: 0.7,
-        side: THREE.DoubleSide
-    });
-    
     // Front windows
-    const frontWindow1 = new THREE.Mesh(windowGeometry, windowMaterial);
+    const frontWindow1 = new THREE.Mesh(MODEL_GEOMETRIES.window, MODEL_MATERIALS.window);
     frontWindow1.position.set(-width/4, 0, depth/2 + 0.01);
     building.add(frontWindow1);
     
-    const frontWindow2 = new THREE.Mesh(windowGeometry, windowMaterial);
+    const frontWindow2 = new THREE.Mesh(MODEL_GEOMETRIES.window, MODEL_MATERIALS.window);
     frontWindow2.position.set(width/4, 0, depth/2 + 0.01);
     building.add(frontWindow2);
     
     // Back windows
-    const backWindow1 = new THREE.Mesh(windowGeometry, windowMaterial);
+    const backWindow1 = new THREE.Mesh(MODEL_GEOMETRIES.window, MODEL_MATERIALS.window);
     backWindow1.position.set(-width/4, 0, -depth/2 - 0.01);
     backWindow1.rotation.y = Math.PI;
     building.add(backWindow1);
     
-    const backWindow2 = new THREE.Mesh(windowGeometry, windowMaterial);
+    const backWindow2 = new THREE.Mesh(MODEL_GEOMETRIES.window, MODEL_MATERIALS.window);
     backWindow2.position.set(width/4, 0, -depth/2 - 0.01);
     backWindow2.rotation.y = Math.PI;
     building.add(backWindow2);
     
     // Add door
-    const doorGeometry = new THREE.PlaneGeometry(0.6, 1);
-    const doorMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x8b4513,
-        side: THREE.DoubleSide
-    });
-    
-    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    const door = new THREE.Mesh(MODEL_GEOMETRIES.door, MODEL_MATERIALS.door);
     door.position.set(0, -height/4, depth/2 + 0.01);
     building.add(door);
 }
@@ -206,8 +214,7 @@ function createTree(height) {
     
     // Tree trunk
     const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.3, height, 8);
-    const trunkMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 }); // Brown
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    const trunk = new THREE.Mesh(trunkGeometry, MODEL_MATERIALS.trunk);
     trunk.position.y = height / 2;
     trunk.castShadow = true;
     trunk.receiveShadow = true;
@@ -215,8 +222,7 @@ function createTree(height) {
     
     // Tree foliage
     const foliageGeometry = new THREE.ConeGeometry(height / 2, height, 8);
-    const foliageMaterial = new THREE.MeshPhongMaterial({ color: 0x2e8b57 }); // Green
-    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+    const foliage = new THREE.Mesh(foliageGeometry, MODEL_MATERIALS.foliage);
     foliage.position.y = height + (height / 4);
     foliage.castShadow = true;
     treeGroup.add(foliage);

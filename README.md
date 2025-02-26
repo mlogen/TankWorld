@@ -3,7 +3,7 @@
 A 3D tank game built with vanilla HTML, CSS, and JavaScript using Three.js.
 
 ## Version
-v0.12
+v0.14
 
 ## Description
 Tank World is a simple 3D tank game where you control a tank in a countryside environment. The game features basic 3D models for the tank and environment, including destroyable objects like buildings.
@@ -40,6 +40,23 @@ Tank World is a simple 3D tank game where you control a tank in a countryside en
 - No additional dependencies required
 
 ## Changelog
+### v0.14
+- Added realistic destruction effects for buildings and trees
+- Buildings now break into concrete chunks and glass shards when destroyed
+- Trees break into trunk pieces and foliage fragments when destroyed
+- Added physics simulation for debris with gravity, bouncing, and rotation
+- Tank now takes damage when colliding with destructible objects
+- Implemented tank collision detection with environment objects
+- Added push-back effect when tank collides with objects
+
+### v0.13
+- Significant performance optimizations throughout the codebase
+- Implemented reusable geometries and materials to reduce memory usage
+- Removed unused functions and redundant code
+- Optimized object creation with shared resources
+- Improved explosion particle system with geometry pooling
+- Reduced unnecessary object instantiation during gameplay
+
 ### v0.12
 - Dramatically increased projectile travel distance by 500%
 - Increased initial velocity from 15 to 75 units per second
