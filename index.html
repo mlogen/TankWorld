@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank World</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Main Menu -->
+        <div id="main-menu" class="screen active">
+            <h1>Tank World</h1>
+            <div class="version">v0.12</div>
+            <button id="start-button">Start Game</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div id="hud">
+                <div id="exit-button">Exit</div>
+                <div id="armor-health">
+                    <div class="label">Armor:</div>
+                    <div class="health-bar">
+                        <div class="health-fill"></div>
+                    </div>
+                </div>
+            </div>
+            <canvas id="game-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- Three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Game scripts -->
+    <script src="js/main.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/models.js"></script>
+    <script src="js/environment.js"></script>
+</body>
+</html> 

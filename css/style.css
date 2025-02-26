@@ -1,0 +1,145 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #222;
+    color: #fff;
+    overflow: hidden;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Main Menu Styles */
+#main-menu {
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 10;
+}
+
+#main-menu h1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #f7d51d;
+    text-shadow: 0 0 10px rgba(247, 213, 29, 0.5);
+}
+
+.version {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+#start-button {
+    padding: 1rem 2rem;
+    font-size: 1.5rem;
+    background-color: #4a8;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+#start-button:hover {
+    background-color: #5b9;
+    transform: scale(1.05);
+}
+
+#start-button:active {
+    transform: scale(0.98);
+}
+
+/* Game Screen Styles */
+#game-screen {
+    background-color: #000;
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* HUD Styles */
+#hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 1rem;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#exit-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 0.5rem 1rem;
+    background-color: rgba(200, 50, 50, 0.7);
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+#exit-button:hover {
+    background-color: rgba(220, 70, 70, 0.9);
+}
+
+#armor-health {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.label {
+    margin-right: 0.5rem;
+    font-weight: bold;
+}
+
+.health-bar {
+    width: 150px;
+    height: 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid #666;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.health-fill {
+    width: 100%;
+    height: 100%;
+    background-color: #4a8;
+    transition: width 0.3s;
+} 
